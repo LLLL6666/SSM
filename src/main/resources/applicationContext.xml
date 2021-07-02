@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mybatis-spring="http://mybatis.org/schema/mybatis-spring"
+       xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd http://mybatis.org/schema/mybatis-spring http://mybatis.org/schema/mybatis-spring.xsd http://www.springframework.org/schema/aop https://www.springframework.org/schema/aop/spring-aop.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+    <!--配置spring组件扫描-->
+    <context:component-scan base-package="com.study" >
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+    <!--引入外部数据库信息-->
+    <context:property-placeholder location="classpath:dbconfig.properties" />
+    <!--创建数据源-->
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="url" value="${jdbc_url}"  />
+        <property name="driverClassName" value="${jdbc_driverClass}" />
+        <property name="username" value="${jdbc_userName}" />
+        <property name="password" value="${jdbc_password}" />
+    </bean>
+
+    <!--配置和mybatis的整合-->
+    <bean class="org.mybatis.spring.SqlSessionFactoryBean" id="sqlSessionFactory">
+        <property name="configLocation" value="classpath:mybatis-config.xml" />
+        <property name="dataSource" ref="dataSource"/>
+        <!--指定mapper文件位置-->
+        <property name="mapperLocations" value="classpath:mapper/*.xml" />
+    </bean>
+
+    <!--配置扫描器，将接口的实现加入到ioc容器-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer" >
+        <property name="basePackage" value="com.study.dao" />
+    </bean>
+    <!--<mybatis-spring:scan base-package="com.study.dao" />-->
+
+    <!--配置一个可以执行批量操作的sqlSession-->
+    <bean id="sessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory" />
+        <constructor-arg name="executorType" value="BATCH" />
+    </bean>
+
+
+
+    <!--事务的控制，配置事务管理器-->
+    <bean class="org.springframework.jdbc.datasource.DataSourceTransactionManager" id="transactionManager">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+
+    <!--开启基于xml配置的事务配置-->
+    <aop:config>
+        <!--切入点表达式-->
+        <aop:pointcut id="pointCut" expression="execution(* com.study.service.*.*(..))"/>
+        <!--通知-->
+        <aop:advisor advice-ref="myTx" pointcut-ref="pointCut"/>
+    </aop:config>
+    <!--事务增强配置-->
+    <tx:advice transaction-manager="transactionManager" id="myTx">
+        <tx:attributes>
+            <!--所有方法都是事务-->
+            <tx:method name="*" rollback-for="java.lang.Exception"/>
+            <!--所有get方法开头的请求都是只读-->
+            <tx:method name="get*" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+
+</beans>
